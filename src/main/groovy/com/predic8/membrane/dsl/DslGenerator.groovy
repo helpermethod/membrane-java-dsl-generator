@@ -30,7 +30,7 @@ class DslGenerator {
         def interceptors = reflections.getSubTypesOf(AbstractInterceptor).findAll { it.isAnnotationPresent(MCElement) }
 
         interceptors.each { interceptor ->
-            def interceptorName = interceptor.getSimpleName().uncapitalize()
+            def interceptorName = interceptor.simpleName.uncapitalize()
             def constructor = constructorBuilder()
                     .addModifiers(PUBLIC)
                     .addParameter(interceptor, interceptorName)
