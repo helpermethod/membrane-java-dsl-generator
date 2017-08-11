@@ -1,4 +1,4 @@
-# A Java 8 DSL generator for Membrane Service Proxy.
+# Membrane Java DSL Generator
 
 This project is built atop two great Java libraries
 
