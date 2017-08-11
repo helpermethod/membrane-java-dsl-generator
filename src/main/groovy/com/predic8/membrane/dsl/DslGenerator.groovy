@@ -9,18 +9,13 @@ import com.squareup.javapoet.ParameterSpec
 import groovy.transform.CompileStatic
 import org.reflections.Reflections
 
-import java.lang.reflect.Modifier
 import java.lang.reflect.Parameter
 
 import static com.squareup.javapoet.MethodSpec.constructorBuilder
 import static com.squareup.javapoet.MethodSpec.methodBuilder
 import static com.squareup.javapoet.TypeSpec.classBuilder
-import static java.lang.reflect.Modifier.FINAL
-import static java.lang.reflect.Modifier.PRIVATE
 import static java.nio.file.Paths.get
-import static javax.lang.model.element.Modifier.FINAL
-import static javax.lang.model.element.Modifier.PRIVATE
-import static javax.lang.model.element.Modifier.PUBLIC
+import static javax.lang.model.element.Modifier.*
 import static org.reflections.ReflectionUtils.*
 
 @CompileStatic
@@ -48,12 +43,12 @@ class DslGenerator {
                     methodBuilder
                             .addParameter(it)
                             .addStatement("${interceptorName}.${method.name}($it.name)")
+                            .addStatement("return this")
                 }
                 methodBuilder.build()
             }
-
             def field = FieldSpec.builder(interceptor, interceptorName, PRIVATE, FINAL).build()
-            def specificationBuilder = classBuilder("${interceptor.simpleName}Specification")
+            def specificationBuilder = classBuilder("${interceptor.getAnnotation(MCElement).name().capitalize()}Specification")
                     .addModifiers(PUBLIC)
                     .addField(field)
                     .addMethod(constructor)
