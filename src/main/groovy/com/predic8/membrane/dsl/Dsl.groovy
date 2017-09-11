@@ -4,13 +4,7 @@ import com.predic8.membrane.annot.MCAttribute
 import com.predic8.membrane.annot.MCChildElement
 import com.predic8.membrane.annot.MCElement
 import com.predic8.membrane.core.interceptor.cbr.Case
-import com.squareup.javapoet.ClassName
-import com.squareup.javapoet.FieldSpec
-import com.squareup.javapoet.JavaFile
-import com.squareup.javapoet.MethodSpec
-import com.squareup.javapoet.ParameterSpec
-import com.squareup.javapoet.ParameterizedTypeName
-import com.squareup.javapoet.TypeSpec
+import com.squareup.javapoet.*
 import groovy.transform.CompileStatic
 import org.reflections.Reflections
 
@@ -39,7 +33,7 @@ class Dsl {
     void generate() {
         reflections
             .getTypesAnnotatedWith(MCElement, true)
-            .minus([Case])
+            .minus(Case) // TODO
             .collect(this.&generateParts)
             .collect(this.&generateClass)
             .each(this.&generateJavaFile)
@@ -100,18 +94,31 @@ class Dsl {
             def methodBuilder = methodBuilder(replacements.get(methodName, methodName))
                 .addModifiers(PUBLIC)
 
-            // TODO split up further
-            // TODO handle complex case later (e.g. List<Interceptor>)
             if (!(parameter.parameterizedType instanceof ParameterizedType)) {
                 def name = parameter.type.simpleName.uncapitalize()
-                def spec = ClassName.get('com.predic8.membrane.dsl', "${name}Spec")
+                def spec = ClassName.get('com.predic8.membrane.dsl', "${parameter.type.simpleName}Spec")
                 def specConsumer = ParameterizedTypeName.get(ClassName.get(Consumer), spec)
                 def specParameter = ParameterSpec.builder(specConsumer, parameter.name).build()
 
                 methodBuilder.addParameter(specParameter)
                              .addStatement("\$T $name = new \$T())", parameter.type, parameter.type)
-                             .addStatement("${specParameter.name}.accept($name)", parameter.type)
+                             .addStatement("\$N.accept($name)", specParameter)
                              .addStatement("\$N.set${parameter.type.simpleName}($name)", field)
+            } else {
+                def typeArgument = (parameter.parameterizedType as ParameterizedType).actualTypeArguments[0] as Class
+                def assignables = reflections.getTypesAnnotatedWith(MCElement, true).findAll {
+                    typeArgument.isAssignableFrom(it)
+                }
+
+                // TODO
+                // create class for type
+                // for each subclass
+                // create a new method with subclass param
+                // create consumer parameter for type
+
+                def names = assignables*.getAnnotation(MCElement)*.name()
+
+                println names
             }
 
             methodBuilder
