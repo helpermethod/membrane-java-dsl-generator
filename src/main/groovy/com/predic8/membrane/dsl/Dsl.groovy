@@ -4,6 +4,7 @@ import com.predic8.membrane.annot.MCAttribute
 import com.predic8.membrane.annot.MCChildElement
 import com.predic8.membrane.annot.MCElement
 import com.predic8.membrane.core.interceptor.cbr.Case
+import com.predic8.membrane.core.interceptor.cbr.XPathCBRInterceptor
 import com.squareup.javapoet.*
 import groovy.transform.CompileStatic
 import org.reflections.Reflections
@@ -33,9 +34,8 @@ class Dsl {
     void generate() {
         reflections
             .getTypesAnnotatedWith(MCElement, true)
-            .minus(Case) // TODO
-            .collect(this.&generateParts)
-            .collect(this.&generateClass)
+            .minus([XPathCBRInterceptor, Case])
+            .collect(this.&generateClass << this.&generateParts)
             .each(this.&generateJavaFile)
     }
 
@@ -56,7 +56,7 @@ class Dsl {
     }
 
     private TypeSpec generateClass(Parts parts) {
-        return classBuilder(parts.name)
+        classBuilder(parts.name)
             .addModifiers(PUBLIC)
             .addField(parts.field)
             .addMethod(parts.constructor)
@@ -65,21 +65,21 @@ class Dsl {
     }
 
     private void generateJavaFile(TypeSpec specification) {
-        def javaFile = JavaFile.builder('com.predic8.membrane.dsl', specification)
-                               .indent(' ' * 4)
-                               .build()
-
-        javaFile.writeTo(Paths.get('build/generated'))
+        JavaFile.builder('com.predic8.membrane.dsl', specification)
+                .indent(' ' * 4)
+                .build()
+                .writeTo(Paths.get('build/generated'))
     }
 
     private List<MethodSpec> generateSimpleSetters(Class<?> type) {
-        getAllMethods(type, withAnnotation(MCAttribute)).collect { Method method ->
+        getAllMethods(type, withAnnotation(MCAttribute)).collect { method ->
             def methodName = (method.name - ~/^set/).uncapitalize()
+            def validMethodName = replacements.get(methodName, methodName)
             def parameter = method.parameters.first()
 
-            methodBuilder(replacements.get(methodName, methodName))
+            methodBuilder(validMethodName)
                 .addModifiers(PUBLIC)
-                .addParameter(ParameterSpec.builder(parameter.type, parameter.name).build())
+                .addParameter(ParameterSpec.builder(parameter.type, validMethodName).build())
                 .addStatement("this.${method.name}(${parameter.name})")
                 .addStatement('return this')
                 .returns(type)
@@ -95,9 +95,13 @@ class Dsl {
                 .addModifiers(PUBLIC)
 
             if (!(parameter.parameterizedType instanceof ParameterizedType)) {
-                def name = parameter.type.simpleName.uncapitalize()
-                def spec = ClassName.get('com.predic8.membrane.dsl', "${parameter.type.simpleName}Spec")
-                def specConsumer = ParameterizedTypeName.get(ClassName.get(Consumer), spec)
+                def lowerCaseParameterName = parameter.type.simpleName.uncapitalize()
+                def name = replacements.get(lowerCaseParameterName, lowerCaseParameterName)
+                def specConsumer = ParameterizedTypeName.get(
+                    ClassName.get(Consumer),
+                    ClassName.get('com.predic8.membrane.dsl', "${parameter.type.simpleName}Spec")
+                )
+                // TODO use name?
                 def specParameter = ParameterSpec.builder(specConsumer, parameter.name).build()
 
                 methodBuilder.addParameter(specParameter)
